@@ -1,0 +1,253 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  VOLUNTEER
+  NGO
+  ADMIN
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  volunteerProfile VolunteerProfile?
+  ngoProfile       NgoProfile?
+
+  comments         Comment[]
+  notifications    Notification[]
+  teamRoles        TeamMember[]
+  chats            Chat[]
+  messages         Message[]
+}
+
+model VolunteerProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  firstName      String
+  lastName       String
+  phone          String?
+  aadhaarEkycId  String?
+  points         Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  applications   EventApplication[]
+  certificates   Certificate[]
+  skills         Skill[]
+  following      Follow[]
+}
+
+model NgoProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  name            String
+  description     String?
+  missionStatement String?
+  location        String?
+  website         String?
+  isVerified      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  events          Event[]
+  legalDocs       LegalDocument[]
+  causes          Cause[]
+  followers       Follow[]
+  posts           Post[]
+  teamMembers     TeamMember[]
+  legalWorkflows  LegalWorkflow[]
+  sentCollaborations Collaboration[] @relation("SentCollaborations")
+  receivedCollaborations Collaboration[] @relation("ReceivedCollaborations")
+}
+
+model Event {
+  id             String   @id @default(uuid())
+  ngoId          String
+  ngo            NgoProfile @relation(fields: [ngoId], references: [id])
+  title          String
+  description    String
+  date           DateTime
+  location       String
+  requiredVolunteers Int
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  applications   EventApplication[]
+  skills         Skill[]
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model EventApplication {
+  id            String   @id @default(uuid())
+  eventId       String
+  event         Event    @relation(fields: [eventId], references: [id])
+  volunteerId   String
+  volunteer     VolunteerProfile @relation(fields: [volunteerId], references: [id])
+  status        ApplicationStatus @default(PENDING)
+  attended      Boolean  @default(false)
+  hoursLogged   Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  certificate   Certificate?
+}
+
+model Certificate {
+  id               String   @id @default(uuid())
+  applicationId    String   @unique
+  application      EventApplication @relation(fields: [applicationId], references: [id])
+  volunteerId      String
+  volunteer        VolunteerProfile @relation(fields: [volunteerId], references: [id])
+  issueDate        DateTime @default(now())
+  downloadUrl      String
+}
+
+enum DocumentType {
+  TRUST
+  SOCIETY
+  SECTION_8
+}
+
+model LegalDocument {
+  id             String   @id @default(uuid())
+  ngoId          String
+  ngo            NgoProfile @relation(fields: [ngoId], references: [id])
+  type           DocumentType
+  status         ApplicationStatus @default(PENDING)
+  documentUrl    String?
+  checklistState Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Skill {
+  id             String   @id @default(uuid())
+  name           String   @unique
+  volunteers     VolunteerProfile[]
+  events         Event[]
+}
+
+model Cause {
+  id             String   @id @default(uuid())
+  name           String   @unique
+  ngos           NgoProfile[]
+}
+
+model Follow {
+  id             String   @id @default(uuid())
+  followerId     String
+  follower       VolunteerProfile @relation(fields: [followerId], references: [id])
+  followingId    String
+  following      NgoProfile @relation(fields: [followingId], references: [id])
+  createdAt      DateTime @default(now())
+}
+
+model Post {
+  id             String   @id @default(uuid())
+  ngoId          String
+  ngo            NgoProfile @relation(fields: [ngoId], references: [id])
+  content        String
+  imageUrl       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  comments       Comment[]
+}
+
+model Comment {
+  id             String   @id @default(uuid())
+  postId         String
+  post           Post     @relation(fields: [postId], references: [id])
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  content        String
+  createdAt      DateTime @default(now())
+}
+
+model TeamMember {
+  id             String   @id @default(uuid())
+  ngoId          String
+  ngo            NgoProfile @relation(fields: [ngoId], references: [id])
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  role           String   @default("MANAGER") // ADMIN or MANAGER
+  createdAt      DateTime @default(now())
+}
+
+model LegalWorkflow {
+  id             String   @id @default(uuid())
+  ngoId          String
+  ngo            NgoProfile @relation(fields: [ngoId], references: [id])
+  type           String   // Trust, Society, Section 8
+  progress       Int      @default(0)
+  status         String   @default("DRAFTING") // DRAFTING, SUBMITTED, APPROVED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Collaboration {
+  id             String   @id @default(uuid())
+  senderId       String
+  sender         NgoProfile @relation("SentCollaborations", fields: [senderId], references: [id])
+  receiverId     String
+  receiver       NgoProfile @relation("ReceivedCollaborations", fields: [receiverId], references: [id])
+  status         ApplicationStatus @default(PENDING)
+  title          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Notification {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  title          String
+  content        String
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}
+
+model Chat {
+  id             String   @id @default(uuid())
+  participants   User[]
+  messages       Message[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  chatId         String
+  chat           Chat     @relation(fields: [chatId], references: [id])
+  senderId       String
+  sender         User     @relation(fields: [senderId], references: [id])
+  content        String
+  mediaUrl       String?
+  createdAt      DateTime @default(now())
+}
