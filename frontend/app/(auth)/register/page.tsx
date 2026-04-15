@@ -12,7 +12,7 @@ export default function Register() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3001"}/auth/register`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://ngo-hub-production.up.railway.app"}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, role }),
